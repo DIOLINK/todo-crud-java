@@ -1,25 +1,37 @@
 #!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-JAVAFX=frontend/lib/javafx-sdk-17/lib
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$BASE_DIR/lib"
 MONGO_JAR="$LIB_DIR/mongo-java-driver-3.12.14.jar"
 
+BACKEND_OUT="$BASE_DIR/backend/out"
+FRONTEND_OUT="$BASE_DIR/frontend/out"
+SHARED_OUT="$BASE_DIR/shared/out"
+
+# 1. Compilar shared
 echo "Compilando shared..."
-mkdir -p shared/out
-javac -d shared/out shared/src/com/todo/model/*.java
+mkdir -p "$SHARED_OUT"
+javac -d "$SHARED_OUT" 
+"$BASE_DIR"/shared/src/com/todo/model/*.java
 
+# 2. Compilar backend
 echo "Compilando backend..."
-mkdir -p backend/out
-javac -cp lib/mongo-java-driver-3.12.14.jar:shared/out -d 
-backend/out backend/src/com/todo/server/*.java
+mkdir -p "$BACKEND_OUT"
+javac -cp "$MONGO_JAR:$SHARED_OUT" -d "$BACKEND_OUT" \
+      "$BASE_DIR"/backend/src/com/todo/server/*.java \
+      "$BASE_DIR"/backend/src/com/todo/db/*.java
 
+# 3. Compilar frontend
 echo "Compilando frontend..."
-mkdir -p frontend/out
-javac --module-path $JAVAFX \
-      --add-modules javafx.controls,javafx.fxml \
-      -cp frontend/lib/mongo-java-driver-3.12.14.jar:shared/out \
-      -d frontend/out \
-      frontend/src/com/todo/ui/*.java
+mkdir -p "$FRONTEND_OUT"
+javac --module-path "$BASE_DIR/frontend/lib/javafx-sdk-17/lib" 
+\
+      --add-modules javafx.controls \
+      -cp "$MONGO_JAR:$SHARED_OUT" \
+      -d "$FRONTEND_OUT" \
+      "$BASE_DIR"/frontend/src/com/todo/ui/*.java \
+      "$BASE_DIR"/frontend/src/com/todo/client/*.java
 
 echo "Build completo."
