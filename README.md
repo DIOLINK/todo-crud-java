@@ -21,10 +21,10 @@ HTTP simple.
 ```bash
 chmod +x build.sh
 ./build.sh
-
+```
+---
 
 ## 📁 Estructura final deseada
-
 ```
 todo-crud-java/
 ├── frontend/
