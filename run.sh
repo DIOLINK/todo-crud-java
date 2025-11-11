@@ -9,8 +9,7 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_OUT="$BASE_DIR/backend/out"
 FRONTEND_OUT="$BASE_DIR/frontend/out"
 SHARED_OUT="$BASE_DIR/shared/out"
-BACKEND_LIB="$BASE_DIR/backend/lib/mongo-java-driver-3.12.14.jar"
-FRONTEND_LIB="$BASE_DIR/frontend/lib/mongo-java-driver-3.12.14.jarFRONTEND_LIB="$BASE_DIR/frontend/lib/mongo-java-driver-3.12.14.jar"
+MONGO_JAR="$BASE_DIR/lib/mongo-java-driver-3.12.14.jar"
 JAVAFX_LIB="$BASE_DIR/frontend/lib/javafx-sdk-17/lib"
 
 # 1. Build si no existen los .class
@@ -24,8 +23,9 @@ fi
 lsof -ti:8080 | xargs -r kill -9 2>/dev/null || true
 
 # 3. Lanzar backend en background
-echo -e "${GREEN}==> Iniciando backend HTTP en puerto 8080${NC}"
-java -cp "$BACKEND_LIB:$BACKEND_OUT:$SHARED_OUT" 
+echo -e "${GREEN}==> Iniciando backend HTTP en puerto 
+8080${NC}"
+java -cp "$MONGO_JAR:$BACKEND_OUT:$SHARED_OUT" 
 com.todo.server.HttpServer &
 BACKEND_PID=$!
 
@@ -36,7 +36,7 @@ sleep 2
 echo -e "${GREEN}==> Iniciando cliente JavaFX${NC}"
 java --module-path "$JAVAFX_LIB" \
      --add-modules javafx.controls \
-     -cp "$FRONTEND_LIB:$FRONTEND_OUT:$SHARED_OUT" \
+     -cp "$MONGO_JAR:$FRONTEND_OUT:$SHARED_OUT" \
      com.todo.ui.Main
 
 # 6. Cuando el usuario cierre la GUI, matamos el backend

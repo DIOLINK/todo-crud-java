@@ -28,14 +28,12 @@ chmod +x build.sh
 ```
 todo-crud-java/
 ├── frontend/
-│   ├── lib/
 │   ├── src/
 │   │   └── com/
 │   │       └── todo/
 │   │           ├── Main.java
 │   │           └── ui/
 ├── backend/
-│   ├── lib/
 │   ├── src/
 │   │   └── com/
 │   │       └── todo/
@@ -50,6 +48,7 @@ todo-crud-java/
 ├── mongodb/
 │   └── scripts/
 │       └── init.js
+├── lib/
 ├── .gitignore
 ├── README.md
 └── build.sh
