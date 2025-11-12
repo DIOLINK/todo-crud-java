@@ -9,7 +9,10 @@ import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import com.todo.ui.TaskFormatter;
 
+import java.util.logging.Logger;
+
 public class Main extends Application {
+    private static final Logger logger = Logger.getLogger(Main.class.getName());
     private final TaskService taskService = new TaskService();
     private final ObservableList<String> items = FXCollections.observableArrayList();
 
@@ -47,15 +50,23 @@ public class Main extends Application {
     private void setupActions(UIComponents ui) {
         ui.add.setOnAction(e -> {
             String title = ui.input.getText().trim();
-            if (title.isEmpty()) return;
+            logger.info("[DEBUG] Botón 'Add' presionado. Título ingresado: '" + title + "'");
+            if (title.isEmpty()) {
+                logger.info("[DEBUG] Título vacío, no se agrega tarea.");
+                return;
+            }
             ui.add.setDisable(true);
             ui.refresh.setDisable(true);
             taskService.addTask(title)
-                .thenRun(() -> loadTasks(ui.add, ui.refresh));
+                .thenRun(() -> {
+                    logger.info("[DEBUG] Tarea agregada. Recargando lista de tareas...");
+                    loadTasks(ui.add, ui.refresh);
+                });
             ui.input.clear();
         });
 
         ui.refresh.setOnAction(e -> {
+            logger.info("[DEBUG] Botón 'Refresh' presionado. Recargando lista de tareas...");
             ui.add.setDisable(true);
             ui.refresh.setDisable(true);
             loadTasks(ui.add, ui.refresh);
@@ -63,13 +74,20 @@ public class Main extends Application {
     }
 
     private void loadTasks(Button add, Button refresh) {
+        logger.info("[DEBUG] Solicitando tareas al servicio...");
         taskService.getTasks()
-            .thenAccept(json -> parseAndShow(json, add, refresh));
+            .thenAccept(json -> {
+                logger.info("[DEBUG] Respuesta JSON recibida: " + json);
+                parseAndShow(json, add, refresh);
+            });
     }
 
     private void parseAndShow(String json, Button add, Button refresh) {
         Platform.runLater(() -> {
-            items.setAll(parseTasks(json));
+            logger.info("[DEBUG] Mostrando tareas en la UI...");
+            java.util.List<String> parsed = parseTasks(json);
+            logger.info("[DEBUG] Tareas parseadas: " + parsed);
+            items.setAll(parsed);
             add.setDisable(false);
             refresh.setDisable(false);
         });
@@ -78,11 +96,15 @@ public class Main extends Application {
     // Devuelve una lista de strings para mostrar en la UI a partir del JSON recibido
     private java.util.List<String> parseTasks(String json) {
         java.util.List<String> result = new java.util.ArrayList<>();
-        if (json == null || json.isBlank()) return result;
+        if (json == null || json.isBlank()) {
+            logger.info("[DEBUG] JSON vacío o nulo en parseTasks");
+            return result;
+        }
         String[] parts = json.split("\\},\\{");
         for (String p : parts) {
             String title = extractField(p, "title");
             String done = extractField(p, "done");
+            logger.info("[DEBUG] Tarea encontrada: title='" + title + "', done='" + done + "'");
             String formatted = TaskFormatter.format(title, done);
             if (!formatted.isBlank()) {
                 result.add(formatted);
