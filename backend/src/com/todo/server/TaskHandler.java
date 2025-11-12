@@ -36,24 +36,40 @@ public class TaskHandler implements HttpHandler {
     }
 
     private void handleGet(HttpExchange exchange) throws IOException {
-        StringBuilder json = new StringBuilder();
-        json.append("[");
-        boolean first = true;
-        for (Task t : collection.find()) {
-            if (!first) json.append(",");
-            json.append("{\"title\":\"")
-                .append(escapeJson(t.getTitle()))
-                .append("\",\"done\":\"")
-                .append(t.isDone())
-                .append("\"}");
-            first = false;
-        }
-        json.append("]");
-        String response = json.toString();
-        exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(200, response.getBytes().length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(response.getBytes());
+        try {
+            logger.info("[DEBUG] handleGet: inicio");
+            StringBuilder json = new StringBuilder();
+            json.append("[");
+            boolean first = true;
+            int count = 0;
+            for (Task t : collection.find()) {
+                if (!first) json.append(",");
+                json.append("{\"title\":\"")
+                    .append(escapeJson(t.getTitle()))
+                    .append("\",\"done\":")
+                    .append(t.isDone())
+                    .append("}");
+                first = false;
+                count++;
+            }
+            logger.info("[DEBUG] handleGet: tareas encontradas=" + count);
+            json.append("]");
+            String response = json.toString();
+            logger.info("[DEBUG] handleGet: JSON generado=" + response);
+            exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(200, response.getBytes().length);
+            logger.info("[DEBUG] handleGet: respuesta enviada, bytes=" + response.getBytes().length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(response.getBytes());
+            }
+        } catch (Exception ex) {
+            logger.log(Level.SEVERE, "[ERROR] handleGet: excepción: " + ex.getMessage(), ex);
+            String response = "{\"error\":\"Error interno\"}";
+            exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(500, response.getBytes().length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(response.getBytes());
+            }
         }
     }
 
@@ -61,6 +77,5 @@ public class TaskHandler implements HttpHandler {
     private String escapeJson(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
     }
 }

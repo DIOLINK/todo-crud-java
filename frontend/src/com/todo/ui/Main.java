@@ -107,14 +107,23 @@ public class Main extends Application {
             logger.info("[DEBUG] JSON vacío o nulo en parseTasks");
             return result;
         }
-        String[] parts = json.split("\\},\\{");
+        // Quitar corchetes y dividir objetos
+        String arr = json.trim();
+        logger.info("[DEBUG] JSON para parsear: " + arr);
+        if (arr.startsWith("[")) arr = arr.substring(1);
+        if (arr.endsWith("]")) arr = arr.substring(0, arr.length()-1);
+        if (arr.isBlank()) return result;
+        String[] parts = arr.split("},\\{");
         for (String p : parts) {
-            String title = extractField(p, "title");
-            String done = extractField(p, "done");
+            String obj = p;
+            if (!obj.startsWith("{")) obj = "{" + obj;
+            if (!obj.endsWith("}")) obj = obj + "}";
+            String title = extractField(obj, "title");
+            Boolean done = extractBooleanField(obj, "done");
             if (logger.isLoggable(java.util.logging.Level.INFO)) {
                 logger.info(String.format("[DEBUG] Tarea encontrada: title='%s', done='%s'", title, done));
             }
-            String formatted = TaskFormatter.format(title, done);
+            String formatted = TaskFormatter.format(title, done != null ? done.toString() : null);
             if (!formatted.isBlank()) {
                 result.add(formatted);
             }
@@ -127,12 +136,29 @@ public class Main extends Application {
         String k = "\"" + key + "\":";
         int idx = json.indexOf(k);
         if (idx == -1) return null;
-        int start = json.indexOf('"', idx + k.length());
-        if (start == -1) return null;
-        start++;
-        int end = json.indexOf('"', start);
-        if (end == -1) return null;
-        return json.substring(start, end);
+        int start = idx + k.length();
+        // Si el valor empieza con comillas, es string
+        if (json.charAt(start) == '"') {
+            start++;
+            int end = json.indexOf('"', start);
+            if (end == -1) return null;
+            return json.substring(start, end);
+        } else {
+            // Si no, es booleano o número
+            int end = json.indexOf(',', start);
+            if (end == -1) end = json.indexOf('}', start);
+            if (end == -1) return null;
+            return json.substring(start, end).trim();
+        }
+    }
+
+    // Extrae el valor booleano de un campo del JSON plano
+    private Boolean extractBooleanField(String json, String key) {
+    String val = extractField(json, key);
+    if (val == null) return Boolean.FALSE;
+    if (val.equalsIgnoreCase("true")) return Boolean.TRUE;
+    if (val.equalsIgnoreCase("false")) return Boolean.FALSE;
+    return Boolean.FALSE;
     }
 
 

@@ -22,31 +22,32 @@ public class HttpServer {
     private static final int PORT = 8080;
     private static final Logger logger = Logger.getLogger(HttpServer.class.getName());
 
+    private static MongoClient mongoClient;
+
     public static void main(String[] args) throws IOException {
         // Configurar codec POJO
         CodecRegistry pojoCodecRegistry = fromRegistries(
             MongoClientSettings.getDefaultCodecRegistry(),
             fromProviders(PojoCodecProvider.builder().automatic(true).build()));
 
-        try (MongoClient mongoClient = 
-                 MongoClients.create("mongodb://localhost:27017/")) {
-            MongoDatabase db = 
-                mongoClient.getDatabase("todo_db").withCodecRegistry(pojoCodecRegistry);
-            MongoCollection<Task> collection = 
-                db.getCollection("tasks", Task.class);
+        mongoClient = MongoClients.create("mongodb://localhost:27017/");
+        MongoDatabase db = 
+            mongoClient.getDatabase("todo_db").withCodecRegistry(pojoCodecRegistry);
+        MongoCollection<Task> collection = 
+            db.getCollection("tasks", Task.class);
 
-            // Inicializar colección si está vacía
-            initializeTasksCollection(collection);
+        // Inicializar colección si está vacía
+        initializeTasksCollection(collection);
 
-            com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(new 
-                InetSocketAddress(PORT), 0);
-            server.createContext("/tasks", new TaskHandler(collection));
-            server.setExecutor(null); // default
-            server.start();
-            if (logger.isLoggable(Level.INFO)) {
-                logger.info(String.format("Servidor HTTP escuchando en puerto %d", PORT));
-            }
+        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(new 
+            InetSocketAddress(PORT), 0);
+        server.createContext("/tasks", new TaskHandler(collection));
+        server.setExecutor(null); // default
+        server.start();
+        if (logger.isLoggable(Level.INFO)) {
+            logger.info(String.format("Servidor HTTP escuchando en puerto %d", PORT));
         }
+        // El MongoClient se puede cerrar con un shutdown hook si se desea
     }
 
     // Método para inicializar la colección 'tasks' si está vacía
