@@ -20,14 +20,17 @@ mkdir -p "$BACKEND_OUT"
 javac -cp "$MONGO_JAR:$SHARED_OUT" -d "$BACKEND_OUT" \
       "$BASE_DIR"/backend/src/com/todo/server/*.java
 
+
 # 3. Compilar frontend
 echo "Compilando frontend..."
 mkdir -p "$FRONTEND_OUT"
-javac --module-path "$BASE_DIR/frontend/lib/javafx-sdk-25.0.1/lib" 
-\
+find "$BASE_DIR/frontend/src" -name "*.java" > sources.txt
+javac --module-path "lib/javafx-sdk-17.0.17/lib" \
       --add-modules javafx.controls \
+      -Dprism.order=sw -Dprism.verbose=true
       -cp "$MONGO_JAR:$SHARED_OUT" \
       -d "$FRONTEND_OUT" \
-      "$BASE_DIR"/frontend/src/com/todo/ui/*.java 
+      @sources.txt
+rm sources.txt
 
 echo "Build completo."
