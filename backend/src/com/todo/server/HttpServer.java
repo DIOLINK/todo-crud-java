@@ -4,6 +4,8 @@ import com.sun.net.httpserver.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import com.todo.model.Task;
 import org.bson.Document;
 import com.mongodb.client.*;
@@ -20,6 +22,7 @@ import org.bson.codecs.configuration.CodecRegistry;
 public class HttpServer {
     private static final int PORT = 8080;
     private static MongoCollection<Task> collection;
+    private static final Logger logger = Logger.getLogger(HttpServer.class.getName());
 
     public static void main(String[] args) throws IOException {
         // Configurar codec POJO
@@ -42,12 +45,14 @@ public class HttpServer {
         server.createContext("/tasks", new TaskHandler());
         server.setExecutor(null); // default
         server.start();
-        System.out.println("Servidor HTTP escuchando en puerto " + PORT);
+        if (logger.isLoggable(Level.INFO)) {
+            logger.info(String.format("Servidor HTTP escuchando en puerto %d", PORT));
+        }
     }
     }
 
     static class TaskHandler implements HttpHandler {
-        private static final String TASKS_PATH = "/tasks/";
+    private static final String TASKS_PATH = "/tasks/";
         
         @Override
         public void handle(HttpExchange ex) throws IOException {
@@ -56,34 +61,65 @@ public class HttpServer {
             String response = "";
             int status = 200;
 
+            if (logger.isLoggable(Level.INFO)) {
+                logger.info(String.format("[DEBUG] Petición recibida: método=%s, path=%s", method, path));
+            }
+
             try {
                 switch (method) {
                     case "GET":
                         if (path.equals("/tasks")) {
+                            if (logger.isLoggable(Level.INFO)) {
+                                logger.info("[DEBUG] GET /tasks llamado");
+                            }
                             List<Task> list = new ArrayList<>();
-                            // Aquí deberías poblar la lista y asignar response
+                            for (Task t : collection.find()) {
+                                list.add(t);
+                            }
+                            if (logger.isLoggable(Level.INFO)) {
+                                logger.info(String.format("[DEBUG] Tareas encontradas: %d", list.size()));
+                            }
+                            response = toJson(list);
                         } else if (path.startsWith(TASKS_PATH)) {
                             String id = path.substring(TASKS_PATH.length());
+                            if (logger.isLoggable(Level.INFO)) {
+                                logger.info(String.format("[DEBUG] GET /tasks/{id} llamado con id=%s", id));
+                            }
                             Task t = collection.find(Filters.eq("_id", id)).first();
                             response = t == null ? "{}" : toJson(t);
                         }
                         break;
                     case "POST":
                         String body = read(ex.getRequestBody());
+                        if (logger.isLoggable(Level.INFO)) {
+                            logger.info(String.format("[DEBUG] POST /tasks llamado. Body: %s", body));
+                        }
                         Task t = fromJson(body);
                         t.setId(UUID.randomUUID().toString());
                         collection.insertOne(t);
-                        // Falta asignar response si es necesario
+                        if (logger.isLoggable(Level.INFO)) {
+                            logger.info(String.format("[DEBUG] Tarea insertada con id=%s", t.getId()));
+                        }
+                        response = toJson(t);
                         break;
                     case "PUT":
                         String idPut = path.substring(TASKS_PATH.length());
                         String bodyPut = read(ex.getRequestBody());
+                        if (logger.isLoggable(Level.INFO)) {
+                            logger.info(String.format("[DEBUG] PUT /tasks/{id} llamado con id=%s. Body: %s", idPut, bodyPut));
+                        }
                         Task u = fromJson(bodyPut);
                         collection.replaceOne(Filters.eq("_id", idPut), u);
-                        // Falta asignar response si es necesario
+                        if (logger.isLoggable(Level.INFO)) {
+                            logger.info(String.format("[DEBUG] Tarea actualizada con id=%s", idPut));
+                        }
+                        response = toJson(u);
                         break;
                     case "DELETE":
                         String idDel = path.substring(TASKS_PATH.length());
+                        if (logger.isLoggable(Level.INFO)) {
+                            logger.info(String.format("[DEBUG] DELETE /tasks/{id} llamado con id=%s", idDel));
+                        }
                         collection.deleteOne(Filters.eq("_id", idDel));
                         response = "{}";
                         break;
@@ -149,6 +185,7 @@ String.format("{\"id\":\"%s\",\"title\":\"%s\",\"done\":%b}",
             if (idx == -1) return "";
             int start = json.indexOf("\"", idx + k.length()) + 1;
             int end = json.indexOf("\"", start);
+            if (start == 0 || end == -1) return "";
             return json.substring(start, end);
         }
     }
