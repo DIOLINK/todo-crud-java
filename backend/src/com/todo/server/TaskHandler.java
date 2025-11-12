@@ -27,6 +27,8 @@ public class TaskHandler implements HttpHandler {
             handleGet(exchange);
         } else if ("POST".equalsIgnoreCase(method)) {
             handlePost(exchange);
+        } else if ("DELETE".equalsIgnoreCase(method)) {
+            handleDelete(exchange);
         } else {
             String response = "{\"error\":\"Método no soportado\"}";
             exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
@@ -36,6 +38,40 @@ public class TaskHandler implements HttpHandler {
             }
         }
     }
+    private void handleDelete(HttpExchange exchange) throws IOException {
+        try {
+            String body = new String(exchange.getRequestBody().readAllBytes());
+            logger.info("[DEBUG] handleDelete: body=" + body);
+            String title = extractJsonString(body, "title");
+            if (title == null || title.isBlank()) {
+                String response = "{\"error\":\"Título requerido\"}";
+                exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+                exchange.sendResponseHeaders(400, response.getBytes().length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(response.getBytes());
+                }
+                return;
+            }
+            long deleted = collection.deleteOne(new org.bson.Document("title", title)).getDeletedCount();
+            String response = deleted > 0 ? "{\"ok\":true}" : "{\"error\":\"No encontrado\"}";
+            int code = deleted > 0 ? 200 : 404;
+            exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(code, response.getBytes().length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(response.getBytes());
+            }
+            logger.info("[DEBUG] handleDelete: tarea borrada: " + title + ", deleted=" + deleted);
+        } catch (Exception ex) {
+            logger.log(Level.SEVERE, "[ERROR] handleDelete: excepción: " + ex.getMessage(), ex);
+            String response = "{\"error\":\"Error interno\"}";
+            exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(500, response.getBytes().length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(response.getBytes());
+            }
+        }
+    }
+    
     private void handlePost(HttpExchange exchange) throws IOException {
         try {
             String body = new String(exchange.getRequestBody().readAllBytes());

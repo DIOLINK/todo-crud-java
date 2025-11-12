@@ -30,6 +30,7 @@ public class Main extends Application {
         TextField input;
         Button add;
         Button refresh;
+        Button delete;
     }
 
     private UIComponents setupUI(Stage stage) {
@@ -38,8 +39,10 @@ public class Main extends Application {
         ui.input = new TextField();
         ui.add = new Button("Add");
         ui.refresh = new Button("Refresh");
+        ui.delete = new Button("Delete");
 
-        VBox root = new VBox(10, ui.input, new HBox(10, ui.add, ui.refresh), ui.list);
+        HBox buttons = new HBox(10, ui.add, ui.refresh, ui.delete);
+        VBox root = new VBox(10, ui.input, buttons, ui.list);
         root.setStyle("-fx-padding:10");
         stage.setScene(new Scene(root, 400, 300));
         stage.setTitle("To-Do JavaFX");
@@ -70,6 +73,27 @@ public class Main extends Application {
             ui.add.setDisable(true);
             ui.refresh.setDisable(true);
             loadTasks(ui.add, ui.refresh);
+        });
+
+        ui.delete.setOnAction(e -> {
+            String selected = ui.list.getSelectionModel().getSelectedItem();
+            if (selected == null || selected.isBlank()) {
+                logger.info("[DEBUG] No hay tarea seleccionada para borrar.");
+                return;
+            }
+            // Extraer el título (antes del primer espacio o emoji)
+            String title = selected;
+            int idx = title.lastIndexOf(" ❌");
+            if (idx == -1) idx = title.lastIndexOf(" ✅");
+            if (idx != -1) title = title.substring(0, idx);
+            logger.info("[DEBUG] Botón 'Delete' presionado. Título a borrar: '" + title + "'");
+            ui.delete.setDisable(true);
+            taskService.deleteTask(title)
+                .thenRun(() -> {
+                    logger.info("[DEBUG] Tarea borrada. Recargando lista de tareas...");
+                    Platform.runLater(() -> ui.delete.setDisable(false));
+                    loadTasks(ui.add, ui.refresh);
+                });
         });
     }
 

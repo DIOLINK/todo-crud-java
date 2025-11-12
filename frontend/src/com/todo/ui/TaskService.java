@@ -27,4 +27,15 @@ public class TaskService {
         return client.sendAsync(req, HttpResponse.BodyHandlers.ofString())
                 .thenAccept(r -> {});
     }
+
+        public CompletableFuture<Void> deleteTask(String title) {
+        String json = String.format("{\"title\":\"%s\"}", title);
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(BASE_URL))
+                .header("Content-Type", "application/json")
+                .method("DELETE", HttpRequest.BodyPublishers.ofString(json))
+                .build();
+        return client.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+                .thenAccept(r -> {});
+    }
 }
