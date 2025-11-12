@@ -35,6 +35,7 @@ public class TaskHandler implements HttpHandler {
                 os.write(response.getBytes());
             }
         }
+    }
     private void handlePost(HttpExchange exchange) throws IOException {
         try {
             String body = new String(exchange.getRequestBody().readAllBytes());
@@ -95,7 +96,6 @@ public class TaskHandler implements HttpHandler {
         if (end == -1) end = json.length();
         String val = json.substring(start, end).replace("\"", "").trim();
         return val.equalsIgnoreCase("true");
-    }
     }
 
     private void handleGet(HttpExchange exchange) throws IOException {
