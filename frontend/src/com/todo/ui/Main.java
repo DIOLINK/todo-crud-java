@@ -1,6 +1,7 @@
 package com.todo.ui;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.*;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -12,7 +13,7 @@ import java.util.ArrayList;
 
 public class Main extends Application {
     private final HttpClient client = HttpClient.newHttpClient();
-    private final String BASE = "http://localhost:8080/tasks";
+    private static final String BASE_URL = "http://localhost:8080/tasks";
     private final ObservableList<String> items = 
 FXCollections.observableArrayList();
 
@@ -29,7 +30,7 @@ FXCollections.observableArrayList();
             String json = "{\"title\":\"" + title + 
 "\",\"done\":false}";
             HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(BASE))
+                    .uri(URI.create(BASE_URL))
                     .header("Content-Type", "application/json")
                     
 .POST(HttpRequest.BodyPublishers.ofString(json))
@@ -54,7 +55,7 @@ refresh), list);
 
     private void loadTasks() {
         HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(BASE))
+                .uri(URI.create(BASE_URL))
                 .GET()
                 .build();
         client.sendAsync(req, 
