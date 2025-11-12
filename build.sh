@@ -14,11 +14,13 @@ echo "Compilando shared..."
 mkdir -p "$SHARED_OUT"
 javac -d "$SHARED_OUT" "$BASE_DIR"/shared/src/com/todo/model/*.java
 
-# 2. Compilar backend
+
+# 2. Compilar backend (recursivo, respeta estructura de paquetes)
 echo "Compilando backend..."
+find "$BASE_DIR/backend/src" -name "*.java" > backend_sources.txt
 mkdir -p "$BACKEND_OUT"
-javac -cp "$MONGO_JAR:$SHARED_OUT" -d "$BACKEND_OUT" \
-      "$BASE_DIR"/backend/src/com/todo/server/*.java
+javac -cp "$MONGO_JAR:$SHARED_OUT" -d "$BACKEND_OUT" @backend_sources.txt
+rm backend_sources.txt
 
 
 # 3. Compilar frontend
@@ -27,7 +29,6 @@ mkdir -p "$FRONTEND_OUT"
 find "$BASE_DIR/frontend/src" -name "*.java" > sources.txt
 javac --module-path "lib/javafx-sdk-17.0.17/lib" \
       --add-modules javafx.controls \
-      -Dprism.order=sw -Dprism.verbose=true
       -cp "$MONGO_JAR:$SHARED_OUT" \
       -d "$FRONTEND_OUT" \
       @sources.txt
