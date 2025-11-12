@@ -85,6 +85,13 @@ public class Main extends Application {
     private void parseAndShow(String json, Button add, Button refresh) {
         Platform.runLater(() -> {
             logger.info("[DEBUG] Mostrando tareas en la UI...");
+            if (json != null && json.trim().startsWith("{\"error\"")) {
+                logger.warning("[ERROR] Respuesta de error recibida: " + json);
+                items.clear();
+                add.setDisable(false);
+                refresh.setDisable(false);
+                return;
+            }
             java.util.List<String> parsed = parseTasks(json);
             logger.info("[DEBUG] Tareas parseadas: " + parsed);
             items.setAll(parsed);
@@ -104,7 +111,9 @@ public class Main extends Application {
         for (String p : parts) {
             String title = extractField(p, "title");
             String done = extractField(p, "done");
-            logger.info("[DEBUG] Tarea encontrada: title='" + title + "', done='" + done + "'");
+            if (logger.isLoggable(java.util.logging.Level.INFO)) {
+                logger.info(String.format("[DEBUG] Tarea encontrada: title='%s', done='%s'", title, done));
+            }
             String formatted = TaskFormatter.format(title, done);
             if (!formatted.isBlank()) {
                 result.add(formatted);
