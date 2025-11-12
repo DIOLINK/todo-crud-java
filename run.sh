@@ -24,7 +24,7 @@ fi
 lsof -ti:8080 | xargs -r kill -9 2>/dev/null || true
 
 # 3. Lanzar backend en background
-echo -e "${GREEN}==> Iniciando backend HTTP en puerto 8080${NC}"
+echo "${GREEN}==> Iniciando backend HTTP en puerto 8080${NC}"
 java -cp "$MONGO_JAR:$BACKEND_OUT:$SHARED_OUT" com.todo.server.HttpServer &
 BACKEND_PID=$!
 
@@ -32,7 +32,7 @@ BACKEND_PID=$!
 sleep 2
 
 # 5. Lanzar frontend JavaFX (bloqueante, GUI)
-echo -e "${GREEN}==> Iniciando cliente JavaFX${NC}"
+echo "${GREEN}==> Iniciando cliente JavaFX${NC}"
 java \
     -Dprism.order=sw \
     -Dprism.verbose=true \
