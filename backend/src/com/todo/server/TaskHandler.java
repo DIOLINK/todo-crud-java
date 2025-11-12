@@ -19,14 +19,48 @@ public class TaskHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        // Aquí va la lógica de manejo de requests (GET, POST, etc.)
-        String response = "TaskHandler operativo";
+        String method = exchange.getRequestMethod();
+        if (logger.isLoggable(Level.INFO)) {
+            logger.info("Request recibido en /tasks: " + method);
+        }
+        if ("GET".equalsIgnoreCase(method)) {
+            handleGet(exchange);
+        } else {
+            String response = "{\"error\":\"Método no soportado\"}";
+            exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(405, response.getBytes().length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(response.getBytes());
+            }
+        }
+    }
+
+    private void handleGet(HttpExchange exchange) throws IOException {
+        StringBuilder json = new StringBuilder();
+        json.append("[");
+        boolean first = true;
+        for (Task t : collection.find()) {
+            if (!first) json.append(",");
+            json.append("{\"title\":\"")
+                .append(escapeJson(t.getTitle()))
+                .append("\",\"done\":\"")
+                .append(t.isDone())
+                .append("\"}");
+            first = false;
+        }
+        json.append("]");
+        String response = json.toString();
+        exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
         exchange.sendResponseHeaders(200, response.getBytes().length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(response.getBytes());
         }
-        if (logger.isLoggable(Level.INFO)) {
-            logger.info("Request recibido en /tasks");
-        }
+    }
+
+    // Escapa caracteres especiales para JSON simple
+    private String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
     }
 }
