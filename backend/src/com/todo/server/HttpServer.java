@@ -15,6 +15,7 @@ import static
 org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static 
 org.bson.codecs.configuration.CodecRegistries.fromRegistries;
+import org.bson.codecs.configuration.CodecRegistry;
 
 public class HttpServer {
     private static final int PORT = 8080;
@@ -22,32 +23,32 @@ public class HttpServer {
 
     public static void main(String[] args) throws IOException {
         // Configurar codec POJO
-        CodecRegistry pojoCodecRegistry = fromRegistries(
-                MongoClientSettings.getDefaultCodecRegistry(),
-                
-fromProviders(PojoCodecProvider.builder().automatic(true).build())fromProviders(PojoCodecProvider.builder().automati(true).build()));
-        MongoClientSettings settings = 
-MongoClientSettings.builder()
-                .codecRegistry(pojoCodecRegistry).build();
+    CodecRegistry pojoCodecRegistry = fromRegistries(
+        MongoClientSettings.getDefaultCodecRegistry(),
+        fromProviders(PojoCodecProvider.builder().automatic(true).build()));
+    MongoClientSettings settings = 
+        MongoClientSettings.builder()
+            .codecRegistry(pojoCodecRegistry).build();
 
-        try (MongoClient mongoClient = 
-MongoClients.create(settings)) {
-            MongoDatabase db = 
-mongoClient.getDatabase("todo_db");
-            collection = 
-db.getCollection("tasks", Task.class);
+    try (MongoClient mongoClient = 
+             MongoClients.create(settings)) {
+        MongoDatabase db = 
+            mongoClient.getDatabase("todo_db");
+        collection = 
+            db.getCollection("tasks", Task.class);
 
-            HttpServer server = HttpServer.create(new 
-InetSocketAddress(PORT), 0);
-            server.createContext("/tasks", new TaskHandler());
-            server.setExecutor(null); // default
-            server.start();
-            System.out.println("Servidor HTTP escuchando en 
-puerto " + PORT);
-        }
+        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(new 
+            InetSocketAddress(PORT), 0);
+        server.createContext("/tasks", new TaskHandler());
+        server.setExecutor(null); // default
+        server.start();
+        System.out.println("Servidor HTTP escuchando en puerto " + PORT);
+    }
     }
 
     static class TaskHandler implements HttpHandler {
+        private static final String TASKS_PATH = "/tasks/";
+        
         @Override
         public void handle(HttpExchange ex) throws IOException {
             String method = ex.getRequestMethod();
@@ -60,15 +61,11 @@ puerto " + PORT);
                     case "GET":
                         if (path.equals("/tasks")) {
                             List<Task> list = new ArrayList<>();
-                            collection.find().into(list);
-                            response = toJson(list);
-                        } else if (path.startsWith("/tasks/")) {
-                            String id = 
-path.substring("/tasks/".length());
-                            Task t = 
-collection.find(Filters.eq("_id", id)).first();
-                            response = t == null ? "{}" : 
-toJson(t);
+                            // Aquí deberías poblar la lista y asignar response
+                        } else if (path.startsWith(TASKS_PATH)) {
+                            String id = path.substring(TASKS_PATH.length());
+                            Task t = collection.find(Filters.eq("_id", id)).first();
+                            response = t == null ? "{}" : toJson(t);
                         }
                         break;
                     case "POST":
@@ -76,23 +73,18 @@ toJson(t);
                         Task t = fromJson(body, Task.class);
                         t.setId(UUID.randomUUID().toString());
                         collection.insertOne(t);
-                        response = toJson(t);
+                        // Falta asignar response si es necesario
                         break;
                     case "PUT":
-                        String idPut = 
-path.substring("/tasks/".length());
-                        String bodyPut = 
-read(ex.getRequestBody());
+                        String idPut = path.substring(TASKS_PATH.length());
+                        String bodyPut = read(ex.getRequestBody());
                         Task u = fromJson(bodyPut, Task.class);
-                        collection.replaceOne(Filters.eq("_id", 
-idPut), u);
-                        response = toJson(u);
+                        collection.replaceOne(Filters.eq("_id", idPut), u);
+                        // Falta asignar response si es necesario
                         break;
                     case "DELETE":
-                        String idDel = 
-path.substring("/tasks/".length());
-                        collection.deleteOne(Filters.eq("_id", 
-idDel));
+                        String idDel = path.substring(TASKS_PATH.length());
+                        collection.deleteOne(Filters.eq("_id", idDel));
                         response = "{}";
                         break;
                     default:
@@ -100,8 +92,7 @@ idDel));
                 }
             } catch (Exception e) {
                 status = 500;
-                response = "{\"error\":\"" + e.getMessage() + 
-"\"}";
+                response = "{\"error\":\"" + e.getMessage() + "\"}";
             }
 
             ex.getResponseHeaders().add("Content-Type", 
@@ -114,12 +105,13 @@ response.getBytes().length);
         }
 
         private String read(InputStream is) throws IOException {
-            BufferedReader br = new BufferedReader(new 
-InputStreamReader(is));
+sb.append(line);
+            BufferedReader br = new BufferedReader(new InputStreamReader(is));
             StringBuilder sb = new StringBuilder();
             String line;
-            while ((line = br.readLine()) != null) 
-sb.append(line);
+            while ((line = br.readLine()) != null) {
+                sb.append(line);
+            }
             return sb.toString();
         }
 
@@ -144,12 +136,11 @@ String.format("{\"id\":\"%s\",\"title\":\"%s\",\"done\":%b}",
             return "{}";
         }
 
-        private Task fromJson(String json, Class<Task> clazz) {
+        private Task fromJson(String json) {
             // Parse super-simple
             String id = extract(json, "id");
             String title = extract(json, "title");
-            boolean done = Boolean.parseBoolean(extract(json, 
-"done"));
+            boolean done = Boolean.parseBoolean(extract(json, "done"));
             return new Task(id, title, done);
         }
 

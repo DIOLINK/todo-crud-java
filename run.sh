@@ -10,10 +10,10 @@ BACKEND_OUT="$BASE_DIR/backend/out"
 FRONTEND_OUT="$BASE_DIR/frontend/out"
 SHARED_OUT="$BASE_DIR/shared/out"
 MONGO_JAR="$BASE_DIR/lib/mongo-java-driver-3.12.14.jar"
-JAVAFX_LIB="$BASE_DIR/frontend/lib/javafx-sdk-17/lib"
+JAVAFX_LIB="$BASE_DIR/frontend/lib/javafx-sdk-25.0.1/lib"
 
 # 1. Build si no existen los .class
-if [ ! -d "$BACKEND_OUT" ] || [ ! -d "$FRONTEND_OUT" ]; then
+if [ ! -d "$BACKEND_OUT" ] || [ ! -d "$FRONTEND_OUT" ] || [ ! -d "$SHARED_OUT" ]; then
     echo -e "${GREEN}==> Compilando por primera vez${NC}"
     chmod +x "$BASE_DIR/build.sh"
     "$BASE_DIR/build.sh"
