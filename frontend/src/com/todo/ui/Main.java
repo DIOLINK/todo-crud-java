@@ -7,82 +7,103 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import java.net.http.*;
-import java.net.URI;
-import java.util.ArrayList;
+import com.todo.ui.TaskFormatter;
 
 public class Main extends Application {
-    private final HttpClient client = HttpClient.newHttpClient();
-    private static final String BASE_URL = "http://localhost:8080/tasks";
-    private final ObservableList<String> items = 
-FXCollections.observableArrayList();
+    private final TaskService taskService = new TaskService();
+    private final ObservableList<String> items = FXCollections.observableArrayList();
 
     @Override
     public void start(Stage stage) {
-        ListView<String> list = new ListView<>(items);
-        TextField input = new TextField();
-        Button add = new Button("Add");
-        Button refresh = new Button("Refresh");
+        UIComponents ui = setupUI(stage);
+        setupActions(ui);
+        ui.add.setDisable(true);
+        ui.refresh.setDisable(true);
+        loadTasks(ui.add, ui.refresh);
+    }
 
-        add.setOnAction(e -> {
-            String title = input.getText().trim();
-            if (title.isEmpty()) return;
-            String json = "{\"title\":\"" + title + 
-"\",\"done\":false}";
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(BASE_URL))
-                    .header("Content-Type", "application/json")
-                    
-.POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-            client.sendAsync(req, 
-HttpResponse.BodyHandlers.ofString())
-                  .thenRun(this::loadTasks);
-            input.clear();
-        });
+    private static class UIComponents {
+        ListView<String> list;
+        TextField input;
+        Button add;
+        Button refresh;
+    }
 
-        refresh.setOnAction(e -> loadTasks());
+    private UIComponents setupUI(Stage stage) {
+        UIComponents ui = new UIComponents();
+        ui.list = new ListView<>(items);
+        ui.input = new TextField();
+        ui.add = new Button("Add");
+        ui.refresh = new Button("Refresh");
 
-        VBox root = new VBox(10, input, new HBox(10, add, 
-refresh), list);
+        VBox root = new VBox(10, ui.input, new HBox(10, ui.add, ui.refresh), ui.list);
         root.setStyle("-fx-padding:10");
         stage.setScene(new Scene(root, 400, 300));
         stage.setTitle("To-Do JavaFX");
         stage.show();
-
-        loadTasks();
+        return ui;
     }
 
-    private void loadTasks() {
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL))
-                .GET()
-                .build();
-        client.sendAsync(req, 
-HttpResponse.BodyHandlers.ofString())
-              .thenApply(HttpResponse::body)
-              .thenAccept(this::parseAndShow);
+    private void setupActions(UIComponents ui) {
+        ui.add.setOnAction(e -> {
+            String title = ui.input.getText().trim();
+            if (title.isEmpty()) return;
+            ui.add.setDisable(true);
+            ui.refresh.setDisable(true);
+            taskService.addTask(title)
+                .thenRun(() -> loadTasks(ui.add, ui.refresh));
+            ui.input.clear();
+        });
+
+        ui.refresh.setOnAction(e -> {
+            ui.add.setDisable(true);
+            ui.refresh.setDisable(true);
+            loadTasks(ui.add, ui.refresh);
+        });
     }
 
-    private void parseAndShow(String json) {
-        // Parse super-simple
-        items.clear();
+    private void loadTasks(Button add, Button refresh) {
+        taskService.getTasks()
+            .thenAccept(json -> parseAndShow(json, add, refresh));
+    }
+
+    private void parseAndShow(String json, Button add, Button refresh) {
+        Platform.runLater(() -> {
+            items.setAll(parseTasks(json));
+            add.setDisable(false);
+            refresh.setDisable(false);
+        });
+    }
+
+    // Devuelve una lista de strings para mostrar en la UI a partir del JSON recibido
+    private java.util.List<String> parseTasks(String json) {
+        java.util.List<String> result = new java.util.ArrayList<>();
+        if (json == null || json.isBlank()) return result;
         String[] parts = json.split("\\},\\{");
         for (String p : parts) {
-            String title = extract(p, "title");
-            String done = extract(p, "done");
-            items.add(title + (done.equals("true") ? " ✅" : " ❌"));
+            String title = extractField(p, "title");
+            String done = extractField(p, "done");
+            String formatted = TaskFormatter.format(title, done);
+            if (!formatted.isBlank()) {
+                result.add(formatted);
+            }
         }
+        return result;
     }
 
-    private String extract(String json, String key) {
+    // Extrae el valor de un campo string del JSON plano
+    private String extractField(String json, String key) {
         String k = "\"" + key + "\":";
         int idx = json.indexOf(k);
-        if (idx == -1) return "";
-        int start = json.indexOf("\"", idx + k.length()) + 1;
-        int end = json.indexOf("\"", start);
+        if (idx == -1) return null;
+        int start = json.indexOf('"', idx + k.length());
+        if (start == -1) return null;
+        start++;
+        int end = json.indexOf('"', start);
+        if (end == -1) return null;
         return json.substring(start, end);
     }
+
 
     public static void main(String[] args) {
         launch(args);
