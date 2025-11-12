@@ -1,192 +1,63 @@
+
 package com.todo.server;
 
-import com.sun.net.httpserver.*;
-import java.io.*;
+import com.sun.net.httpserver.HttpHandler;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import com.todo.model.Task;
-import org.bson.Document;
-import com.mongodb.client.*;
-import com.mongodb.client.model.Filters;
-import static com.mongodb.client.model.Updates.*;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.MongoClientSettings;
 import org.bson.codecs.pojo.PojoCodecProvider;
-import static 
-org.bson.codecs.configuration.CodecRegistries.fromProviders;
-import static 
-org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
+import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
+import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
 public class HttpServer {
     private static final int PORT = 8080;
-    private static MongoCollection<Task> collection;
     private static final Logger logger = Logger.getLogger(HttpServer.class.getName());
 
     public static void main(String[] args) throws IOException {
         // Configurar codec POJO
-    CodecRegistry pojoCodecRegistry = fromRegistries(
-        MongoClientSettings.getDefaultCodecRegistry(),
-        fromProviders(PojoCodecProvider.builder().automatic(true).build()));
-    MongoClientSettings settings = 
-        MongoClientSettings.builder()
-            .codecRegistry(pojoCodecRegistry).build();
+        CodecRegistry pojoCodecRegistry = fromRegistries(
+            MongoClientSettings.getDefaultCodecRegistry(),
+            fromProviders(PojoCodecProvider.builder().automatic(true).build()));
 
-    try (MongoClient mongoClient = 
-             MongoClients.create(settings)) {
-        MongoDatabase db = 
-            mongoClient.getDatabase("todo_db");
-        collection = 
-            db.getCollection("tasks", Task.class);
+        try (MongoClient mongoClient = 
+                 MongoClients.create("mongodb://localhost:27017/")) {
+            MongoDatabase db = 
+                mongoClient.getDatabase("todo_db").withCodecRegistry(pojoCodecRegistry);
+            MongoCollection<Task> collection = 
+                db.getCollection("tasks", Task.class);
 
-        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(new 
-            InetSocketAddress(PORT), 0);
-        server.createContext("/tasks", new TaskHandler());
-        server.setExecutor(null); // default
-        server.start();
-        if (logger.isLoggable(Level.INFO)) {
-            logger.info(String.format("Servidor HTTP escuchando en puerto %d", PORT));
-        }
-    }
-    }
+            // Inicializar colección si está vacía
+            initializeTasksCollection(collection);
 
-    static class TaskHandler implements HttpHandler {
-    private static final String TASKS_PATH = "/tasks/";
-        
-        @Override
-        public void handle(HttpExchange ex) throws IOException {
-            String method = ex.getRequestMethod();
-            String path = ex.getRequestURI().getPath();
-            String response = "";
-            int status = 200;
-
+            com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(new 
+                InetSocketAddress(PORT), 0);
+            server.createContext("/tasks", new TaskHandler(collection));
+            server.setExecutor(null); // default
+            server.start();
             if (logger.isLoggable(Level.INFO)) {
-                logger.info(String.format("[DEBUG] Petición recibida: método=%s, path=%s", method, path));
+                logger.info(String.format("Servidor HTTP escuchando en puerto %d", PORT));
             }
-
-            try {
-                switch (method) {
-                    case "GET":
-                        if (path.equals("/tasks")) {
-                            if (logger.isLoggable(Level.INFO)) {
-                                logger.info("[DEBUG] GET /tasks llamado");
-                            }
-                            List<Task> list = new ArrayList<>();
-                            for (Task t : collection.find()) {
-                                list.add(t);
-                            }
-                            if (logger.isLoggable(Level.INFO)) {
-                                logger.info(String.format("[DEBUG] Tareas encontradas: %d", list.size()));
-                            }
-                            response = toJson(list);
-                        } else if (path.startsWith(TASKS_PATH)) {
-                            String id = path.substring(TASKS_PATH.length());
-                            if (logger.isLoggable(Level.INFO)) {
-                                logger.info(String.format("[DEBUG] GET /tasks/{id} llamado con id=%s", id));
-                            }
-                            Task t = collection.find(Filters.eq("_id", id)).first();
-                            response = t == null ? "{}" : toJson(t);
-                        }
-                        break;
-                    case "POST":
-                        String body = read(ex.getRequestBody());
-                        if (logger.isLoggable(Level.INFO)) {
-                            logger.info(String.format("[DEBUG] POST /tasks llamado. Body: %s", body));
-                        }
-                        Task t = fromJson(body);
-                        t.setId(UUID.randomUUID().toString());
-                        collection.insertOne(t);
-                        if (logger.isLoggable(Level.INFO)) {
-                            logger.info(String.format("[DEBUG] Tarea insertada con id=%s", t.getId()));
-                        }
-                        response = toJson(t);
-                        break;
-                    case "PUT":
-                        String idPut = path.substring(TASKS_PATH.length());
-                        String bodyPut = read(ex.getRequestBody());
-                        if (logger.isLoggable(Level.INFO)) {
-                            logger.info(String.format("[DEBUG] PUT /tasks/{id} llamado con id=%s. Body: %s", idPut, bodyPut));
-                        }
-                        Task u = fromJson(bodyPut);
-                        collection.replaceOne(Filters.eq("_id", idPut), u);
-                        if (logger.isLoggable(Level.INFO)) {
-                            logger.info(String.format("[DEBUG] Tarea actualizada con id=%s", idPut));
-                        }
-                        response = toJson(u);
-                        break;
-                    case "DELETE":
-                        String idDel = path.substring(TASKS_PATH.length());
-                        if (logger.isLoggable(Level.INFO)) {
-                            logger.info(String.format("[DEBUG] DELETE /tasks/{id} llamado con id=%s", idDel));
-                        }
-                        collection.deleteOne(Filters.eq("_id", idDel));
-                        response = "{}";
-                        break;
-                    default:
-                        status = 405;
-                }
-            } catch (Exception e) {
-                status = 500;
-                response = "{\"error\":\"" + e.getMessage() + "\"}";
-            }
-
-            ex.getResponseHeaders().add("Content-Type", 
-"application/json");
-            ex.sendResponseHeaders(status, 
-response.getBytes().length);
-            try (OutputStream os = ex.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        }
-
-        private String read(InputStream is) throws IOException {
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                sb.append(line);
-            }
-            return sb.toString();
-        }
-
-        private String toJson(Object obj) {
-            // JSON super-simple (solo para demo)
-            if (obj instanceof Task) {
-                Task t = (Task) obj;
-                return 
-String.format("{\"id\":\"%s\",\"title\":\"%s\",\"done\":%b}",
-                        t.getId(), t.getTitle(), t.isDone());
-            }
-            if (obj instanceof List) {
-                StringBuilder sb = new StringBuilder("[");
-                List<?> list = (List<?>) obj;
-                for (int i = 0; i < list.size(); i++) {
-                    sb.append(toJson(list.get(i)));
-                    if (i < list.size() - 1) sb.append(",");
-                }
-                sb.append("]");
-                return sb.toString();
-            }
-            return "{}";
-        }
-
-        private Task fromJson(String json) {
-            // Parse super-simple
-            String id = extract(json, "id");
-            String title = extract(json, "title");
-            boolean done = Boolean.parseBoolean(extract(json, "done"));
-            return new Task(id, title, done);
-        }
-
-        private String extract(String json, String key) {
-            String k = "\"" + key + "\":";
-            int idx = json.indexOf(k);
-            if (idx == -1) return "";
-            int start = json.indexOf("\"", idx + k.length()) + 1;
-            int end = json.indexOf("\"", start);
-            if (start == 0 || end == -1) return "";
-            return json.substring(start, end);
         }
     }
+
+    // Método para inicializar la colección 'tasks' si está vacía
+    private static void initializeTasksCollection(MongoCollection<Task> collection) {
+        if (collection.countDocuments() == 0) {
+            Task example = new Task(UUID.randomUUID().toString(), "Ejemplo de tarea", false);
+            collection.insertOne(example);
+            if (logger.isLoggable(Level.INFO)) {
+                logger.info("Colección 'tasks' inicializada con una tarea de ejemplo.");
+            }
+        }
+    }
+// ...existing code...
 }
