@@ -70,7 +70,7 @@ public class HttpServer {
                         break;
                     case "POST":
                         String body = read(ex.getRequestBody());
-                        Task t = fromJson(body, Task.class);
+                        Task t = fromJson(body);
                         t.setId(UUID.randomUUID().toString());
                         collection.insertOne(t);
                         // Falta asignar response si es necesario
@@ -78,7 +78,7 @@ public class HttpServer {
                     case "PUT":
                         String idPut = path.substring(TASKS_PATH.length());
                         String bodyPut = read(ex.getRequestBody());
-                        Task u = fromJson(bodyPut, Task.class);
+                        Task u = fromJson(bodyPut);
                         collection.replaceOne(Filters.eq("_id", idPut), u);
                         // Falta asignar response si es necesario
                         break;
@@ -105,7 +105,6 @@ response.getBytes().length);
         }
 
         private String read(InputStream is) throws IOException {
-sb.append(line);
             BufferedReader br = new BufferedReader(new InputStreamReader(is));
             StringBuilder sb = new StringBuilder();
             String line;
