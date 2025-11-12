@@ -70,8 +70,7 @@ HttpResponse.BodyHandlers.ofString())
         for (String p : parts) {
             String title = extract(p, "title");
             String done = extract(p, "done");
-            items.add(title + (done.equals("true") ? " ✅" : " ❌
-"));
+            items.add(title + (done.equals("true") ? " ✅" : " ❌"));
         }
     }
 
